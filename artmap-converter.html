@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArtMap Converter — ManaMap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2233;
+    --surface3: #1f2d42;
+    --border: #2a3a52;
+    --border2: #3a4f6a;
+    --accent: #4ade80;
+    --accent-dim: #166534;
+    --accent2: #38bdf8;
+    --accent2-dim: #0c4a6e;
+    --gold: #fbbf24;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #4b6282;
+    --pixel: 'Pixelify Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--surface2) 1px, transparent 1px),
+      linear-gradient(90deg, var(--surface2) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 60px 0 40px;
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    margin-top: 40px;
+    opacity: 0.6;
+  }
+
+  .logo {
+    font-family: var(--pixel);
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .logo span {
+    background: linear-gradient(135deg, var(--gold), #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text3);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Steps indicator */
+  .steps-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 32px 0;
+    flex-wrap: nowrap;
+  }
+
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--pixel);
+    font-size: 13px;
+    color: var(--text3);
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+
+  .step-dot.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+  }
+
+  .step-dot.done {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #000;
+  }
+
+  .step-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: color 0.3s;
+  }
+
+  .step-item.active .step-label { color: var(--accent); }
+  .step-item.done .step-label { color: var(--text2); }
+
+  .step-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin: 0 8px;
+    min-width: 20px;
+    max-width: 60px;
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    display: none;
+    animation: slideIn 0.4s ease;
+  }
+
+  .panel.active { display: block; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel-title {
+    font-family: var(--pixel);
+    font-size: 18px;
+    color: var(--accent2);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-title .num {
+    background: var(--accent2-dim);
+    border: 1px solid var(--accent2);
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  .panel-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 24px;
+    font-family: var(--mono);
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 10px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(74, 222, 128, 0.04), transparent 70%);
+    pointer-events: none;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, 0.04);
+  }
+
+  .upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    filter: grayscale(0.5);
+  }
+
+  .upload-title {
+    font-family: var(--pixel);
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .upload-sub {
+    font-size: 13px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  #fileInput { display: none; }
+
+  /* Crop panel */
+  .crop-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: crosshair;
+    display: inline-block;
+    max-width: 100%;
+  }
+
+  #cropCanvas {
+    display: block;
+    max-width: 100%;
+    max-height: 500px;
+  }
+
+  .crop-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .crop-outer {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+  }
+
+  .crop-selection {
+    position: absolute;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+    cursor: move;
+  }
+
+  .crop-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    border: 1px solid #000;
+    border-radius: 2px;
+  }
+
+  .crop-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .crop-info {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+
+  /* Settings */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 640px) {
+    .settings-grid { grid-template-columns: 1fr; }
+  }
+
+  .setting-group {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  .setting-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .res-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .res-btn {
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .res-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .res-btn.active {
+    border-color: var(--accent2);
+    background: var(--accent2-dim);
+    color: var(--accent2);
+  }
+
+  .custom-res {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .custom-res input {
+    width: 70px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .custom-res input:focus { border-color: var(--accent2); }
+  .custom-res span { color: var(--text3); font-family: var(--mono); font-size: 13px; }
+
+  /* Toggle switch */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+  .toggle-track {
+    position: absolute;
+    inset: 0;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: var(--text3);
+    border-radius: 50%;
+    transition: all 0.3s;
+  }
+
+  .toggle input:checked + .toggle-track { background: var(--accent-dim); border-color: var(--accent); }
+  .toggle input:checked + .toggle-track .toggle-thumb { transform: translateX(20px); background: var(--accent); }
+
+  .toggle-text { font-size: 14px; color: var(--text2); }
+  .toggle-text small { display: block; font-family: var(--mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Color palette */
+  .palette-section {
+    margin-top: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  .palette-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .palette-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .color-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .color-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.15s;
+  }
+
+  .color-group:hover .color-swatch { transform: scale(1.2); z-index: 10; }
+
+  .color-group.excluded .color-swatch {
+    opacity: 0.2;
+    filter: grayscale(1);
+  }
+
+  .color-group.excluded::after {
+    content: '×';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--red);
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+
+  .color-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 100;
+  }
+
+  .color-group:hover .color-tooltip { opacity: 1; }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--pixel);
+    font-size: 13px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover {
+    background: #6ee7a0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(74, 222, 128, 0.3);
+  }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text3);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .btn-ghost:hover { color: var(--text2); border-color: var(--border2); }
+
+  .btn-blue {
+    background: var(--accent2);
+    color: #000;
+  }
+
+  .btn-blue:hover {
+    background: #7dd3fc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Result panel */
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 760px) {
+    .result-grid { grid-template-columns: 1fr; }
+  }
+
+  .canvas-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .canvas-box-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  #outputCanvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+  }
+
+  /* Instructions */
+  .instructions-panel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-top: 20px;
+  }
+
+  .color-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .color-list::-webkit-scrollbar { width: 4px; }
+  .color-list::-webkit-scrollbar-track { background: var(--surface3); border-radius: 2px; }
+  .color-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .color-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    transition: border-color 0.2s;
+  }
+
+  .color-entry:hover { border-color: var(--border2); }
+
+  .entry-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .entry-info { flex: 1; min-width: 0; }
+
+  .entry-name {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .entry-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  .entry-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Paint reference canvas */
+  #refCanvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    display: none;
+  }
+
+  /* Download actions */
+  .dl-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  /* Progress */
+  .progress-bar-wrap {
+    background: var(--surface3);
+    border-radius: 4px;
+    height: 4px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 4px;
+    transition: width 0.1s;
+    width: 0%;
+  }
+
+  /* Status badge */
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .badge-green { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); }
+  .badge-blue { background: var(--accent2-dim); color: var(--accent2); border: 1px solid var(--accent2); }
+
+  /* Divider row */
+  .row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .select {
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .select:focus { border-color: var(--accent2); }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 32px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+
+  footer a { color: var(--accent2); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* Notification toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface3);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    .steps-bar { gap: 0; }
+    .step-label { display: none; }
+    .step-line { min-width: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Mana<span>Map</span></div>
+    <div class="tagline">// ArtMap Image Converter for Minecraft</div>
+  </header>
+
+  <!-- Steps bar -->
+  <div class="steps-bar" id="stepsBar">
+    <div class="step-item active" id="stepItem1">
+      <div class="step-dot active" id="stepDot1">1</div>
+      <div class="step-label">Upload</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" id="stepItem2">
+      <div class="step-dot" id="stepDot2">2</div>
+      <div class="step-label">Crop</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" id="stepItem3">
+      <div class="step-dot" id="stepDot3">3</div>
+      <div class="step-label">Settings</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step-item" id="stepItem4">
+      <div class="step-dot" id="stepDot4">4</div>
+      <div class="step-label">Export</div>
+    </div>
+  </div>
+
+  <!-- Panel 1: Upload -->
+  <div class="panel active" id="panel1">
+    <div class="panel-title"><span class="num">1</span> Upload Image</div>
+    <div class="panel-sub">// drop any image file to get started</div>
+    <div class="upload-zone" id="uploadZone">
+      <span class="upload-icon">🗺️</span>
+      <div class="upload-title">Drop your image here</div>
+      <div class="upload-sub">or click to browse — PNG, JPG, GIF, WEBP</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+  </div>
+
+  <!-- Panel 2: Crop -->
+  <div class="panel" id="panel2">
+    <div class="panel-title"><span class="num">2</span> Crop Image</div>
+    <div class="panel-sub">// drag to select the area you want to convert. hold shift to lock aspect ratio.</div>
+    <div style="overflow-x: auto;">
+      <div class="crop-container" id="cropContainer">
+        <canvas id="cropCanvas"></canvas>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <span class="crop-info" id="cropInfo">Select a region</span>
+      <button class="btn btn-ghost" id="cropResetBtn">Reset Selection</button>
+      <button class="btn btn-ghost" id="cropSelectAllBtn">Select All</button>
+      <button class="btn btn-primary" id="cropConfirmBtn">Confirm Crop →</button>
+      <button class="btn btn-secondary" id="backTo1Btn">← Back</button>
+    </div>
+  </div>
+
+  <!-- Panel 3: Settings -->
+  <div class="panel" id="panel3">
+    <div class="panel-title"><span class="num">3</span> Settings</div>
+    <div class="panel-sub">// configure resolution, dithering, and color palette</div>
+
+    <div class="settings-grid">
+      <div class="setting-group">
+        <span class="setting-label">Output Resolution</span>
+        <div class="res-options">
+          <button class="res-btn active" data-res="128">128×128</button>
+          <button class="res-btn" data-res="256">256×256</button>
+          <button class="res-btn" data-res="512">512×512</button>
+          <button class="res-btn" data-res="custom">Custom</button>
+        </div>
+        <div class="custom-res" id="customResRow" style="display:none;">
+          <input type="number" id="customW" value="200" min="16" max="1024" placeholder="W">
+          <span>×</span>
+          <input type="number" id="customH" value="200" min="16" max="1024" placeholder="H">
+          <span style="color:var(--text3);font-size:12px;">px</span>
+        </div>
+        <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--text3);">
+          Note: ArtMap canvas is 128×128 per map item
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <span class="setting-label">Rendering Options</span>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="ditherToggle" checked>
+            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          </label>
+          <div class="toggle-text">Floyd-Steinberg Dithering
+            <small>Blends colors for smoother gradients</small>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="labToggle" checked>
+            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          </label>
+          <div class="toggle-text">Perceptual Color Matching
+            <small>Uses CIE Lab for better accuracy</small>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="numberedToggle" checked>
+            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          </label>
+          <div class="toggle-text">Generate Paint Guide
+            <small>Numbered reference + color list</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color Palette -->
+    <div class="palette-section">
+      <div class="palette-header">
+        <div>
+          <span class="setting-label" style="margin-bottom:4px;">Color Palette — <span id="colorCount">183</span> colors</span>
+          <div style="font-size:12px; color:var(--text3); font-family:var(--mono);">Click any color group to exclude it from the output</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="enableAllBtn">Enable All</button>
+          <button class="btn btn-ghost" id="disableAllBtn">Disable All</button>
+        </div>
+      </div>
+      <div class="palette-grid" id="paletteGrid"></div>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-secondary" id="backTo2Btn">← Back</button>
+      <button class="btn btn-primary" id="convertBtn">⚡ Convert Image</button>
+      <div class="progress-bar-wrap" style="flex:1; min-width:100px; display:none;" id="progressWrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 4: Result -->
+  <div class="panel" id="panel4">
+    <div class="panel-title"><span class="num">4</span> Result <span class="badge badge-green" id="resultBadge">READY</span></div>
+    <div class="panel-sub">// your artmap is ready — download or view instructions below</div>
+
+    <div class="result-grid">
+      <div class="canvas-box">
+        <div class="canvas-box-title">Original (cropped)</div>
+        <canvas id="previewCropCanvas" style="width:100%; max-width:400px; height:auto; border-radius:6px; display:block;"></canvas>
+      </div>
+      <div class="canvas-box">
+        <div class="canvas-box-title">ArtMap Output</div>
+        <canvas id="outputCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="dl-actions">
+      <button class="btn btn-primary" id="downloadBtn">⬇ Download ArtMap PNG</button>
+      <button class="btn btn-blue" id="downloadGuideBtn" style="display:none;">⬇ Download Paint Guide</button>
+      <button class="btn btn-secondary" id="backTo3Btn">← Adjust Settings</button>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions-panel" id="instructionsPanel">
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div class="setting-label" style="margin-bottom:2px;">Paint Instructions</div>
+          <div style="font-family:var(--mono); font-size:11px; color:var(--text3);" id="instructionsSub">Colors sorted by usage count</div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select class="select" id="sortSelect">
+            <option value="count">Sort by Count</option>
+            <option value="name">Sort by Name</option>
+            <option value="hue">Sort by Hue</option>
+          </select>
+          <button class="btn btn-ghost" id="copyListBtn">📋 Copy List</button>
+        </div>
+      </div>
+      <div class="color-list" id="colorList"></div>
+    </div>
+
+    <!-- Hidden ref canvas -->
+    <canvas id="refCanvas"></canvas>
+  </div>
+</div>
+
+<footer>
+  <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaСube Minecraft Server</div>
+  <div style="margin-top:4px; opacity:0.5;">Uses the official Minecraft map color palette · 61 base colors · 183 shades</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// PALETTE DATA (61 base colors × 3 shades each)
+// Shades: light (×180/255), mid (base), dark (×135/255)
+// ─────────────────────────────────────────────
+const BASE_COLORS = [
+  { name: "Grass",              r: 127, g: 178, b: 56  },
+  { name: "Sand",               r: 247, g: 233, b: 163 },
+  { name: "Wool",               r: 199, g: 199, b: 199 },
+  { name: "Fire",               r: 255, g: 0,   b: 0   },
+  { name: "Ice",                r: 160, g: 160, b: 255 },
+  { name: "Metal",              r: 167, g: 167, b: 167 },
+  { name: "Plant",              r: 0,   g: 124, b: 0   },
+  { name: "Snow",               r: 255, g: 255, b: 255 },
+  { name: "Clay",               r: 164, g: 168, b: 184 },
+  { name: "Dirt",               r: 151, g: 109, b: 77  },
+  { name: "Stone",              r: 112, g: 112, b: 112 },
+  { name: "Water",              r: 64,  g: 64,  b: 255 },
+  { name: "Wood",               r: 143, g: 119, b: 72  },
+  { name: "Quartz",             r: 255, g: 252, b: 245 },
+  { name: "Orange Wool",        r: 216, g: 127, b: 51  },
+  { name: "Magenta Wool",       r: 178, g: 76,  b: 216 },
+  { name: "Light Blue Wool",    r: 102, g: 153, b: 216 },
+  { name: "Yellow Wool",        r: 229, g: 229, b: 51  },
+  { name: "Lime Wool",          r: 127, g: 204, b: 25  },
+  { name: "Pink Wool",          r: 242, g: 127, b: 165 },
+  { name: "Gray Wool",          r: 76,  g: 76,  b: 76  },
+  { name: "Light Gray Wool",    r: 153, g: 153, b: 153 },
+  { name: "Cyan Wool",          r: 76,  g: 127, b: 153 },
+  { name: "Purple Wool",        r: 127, g: 63,  b: 178 },
+  { name: "Blue Wool",          r: 51,  g: 76,  b: 178 },
+  { name: "Brown Wool",         r: 102, g: 76,  b: 51  },
+  { name: "Green Wool",         r: 102, g: 127, b: 51  },
+  { name: "Red Wool",           r: 153, g: 51,  b: 51  },
+  { name: "Black Wool",         r: 25,  g: 25,  b: 25  },
+  { name: "Gold Block",         r: 250, g: 238, b: 77  },
+  { name: "Diamond Block",      r: 92,  g: 219, b: 213 },
+  { name: "Lapis Block",        r: 74,  g: 128, b: 255 },
+  { name: "Emerald Block",      r: 0,   g: 217, b: 58  },
+  { name: "Podzol",             r: 129, g: 86,  b: 49  },
+  { name: "Netherrack",         r: 112, g: 2,   b: 0   },
+  { name: "White Terracotta",   r: 209, g: 177, b: 161 },
+  { name: "Orange Terracotta",  r: 159, g: 82,  b: 36  },
+  { name: "Magenta Terracotta", r: 149, g: 87,  b: 108 },
+  { name: "Light Blue Terracotta", r: 112, g: 108, b: 138 },
+  { name: "Yellow Terracotta",  r: 186, g: 133, b: 36  },
+  { name: "Lime Terracotta",    r: 103, g: 117, b: 53  },
+  { name: "Pink Terracotta",    r: 160, g: 77,  b: 78  },
+  { name: "Gray Terracotta",    r: 57,  g: 41,  b: 35  },
+  { name: "Light Gray Terracotta", r: 135, g: 107, b: 98 },
+  { name: "Cyan Terracotta",    r: 87,  g: 92,  b: 92  },
+  { name: "Purple Terracotta",  r: 122, g: 73,  b: 88  },
+  { name: "Blue Terracotta",    r: 76,  g: 62,  b: 92  },
+  { name: "Brown Terracotta",   r: 76,  g: 50,  b: 35  },
+  { name: "Green Terracotta",   r: 76,  g: 82,  b: 42  },
+  { name: "Red Terracotta",     r: 142, g: 60,  b: 46  },
+  { name: "Black Terracotta",   r: 37,  g: 22,  b: 16  },
+  { name: "Crimson Nylium",     r: 189, g: 48,  b: 49  },
+  { name: "Crimson Stem",       r: 148, g: 63,  b: 97  },
+  { name: "Crimson Hyphae",     r: 92,  g: 25,  b: 29  },
+  { name: "Warped Nylium",      r: 22,  g: 126, b: 134 },
+  { name: "Warped Stem",        r: 58,  g: 142, b: 140 },
+  { name: "Warped Hyphae",      r: 86,  g: 44,  b: 62  },
+  { name: "Warped Wart Block",  r: 20,  g: 180, b: 133 },
+  { name: "Deepslate",          r: 100, g: 100, b: 100 },
+  { name: "Raw Iron Block",     r: 216, g: 175, b: 147 },
+  { name: "Glow Lichen",        r: 127, g: 167, b: 150 },
+];
+
+// Build full palette: 3 shades per base
+const MULTS = [180, 220, 255];
+const SHADE_NAMES = ['Dark', 'Mid', 'Light'];
+const PALETTE = [];
+
+BASE_COLORS.forEach((bc, bi) => {
+  MULTS.forEach((m, si) => {
+    PALETTE.push({
+      id: bi * 3 + si,
+      baseIdx: bi,
+      shade: si,
+      name: bc.name,
+      shadeName: SHADE_NAMES[si],
+      r: Math.round(bc.r * m / 255),
+      g: Math.round(bc.g * m / 255),
+      b: Math.round(bc.b * m / 255),
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let originalImage = null;
+let croppedImageData = null;
+let outputImageData = null;
+let currentStep = 1;
+let cropState = { active: false, x: 0, y: 0, w: 0, h: 0, dragging: false, resizing: null };
+let excludedColors = new Set(); // set of baseIdx
+let lastColorUsage = [];
+let lastSortMode = 'count';
+let outputW = 128, outputH = 128;
+
+// ─────────────────────────────────────────────
+// COLOR MATH
+// ─────────────────────────────────────────────
+function rgbToLab(r, g, b) {
+  // sRGB to linear
+  let rl = r/255, gl = g/255, bl = b/255;
+  rl = rl > 0.04045 ? Math.pow((rl+0.055)/1.055, 2.4) : rl/12.92;
+  gl = gl > 0.04045 ? Math.pow((gl+0.055)/1.055, 2.4) : gl/12.92;
+  bl = bl > 0.04045 ? Math.pow((bl+0.055)/1.055, 2.4) : bl/12.92;
+  // to XYZ (D65)
+  let x = (rl*0.4124 + gl*0.3576 + bl*0.1805)/0.95047;
+  let y = (rl*0.2126 + gl*0.7152 + bl*0.0722)/1.00000;
+  let z = (rl*0.0193 + gl*0.1192 + bl*0.9505)/1.08883;
+  // to Lab
+  const f = t => t > 0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  const fx = f(x), fy = f(y), fz = f(z);
+  return [116*fy - 16, 500*(fx-fy), 200*(fy-fz)];
+}
+
+function colorDistLab(r1,g1,b1, r2,g2,b2) {
+  const [L1,a1,b1_] = rgbToLab(r1,g1,b1);
+  const [L2,a2,b2_] = rgbToLab(r2,g2,b2);
+  return (L1-L2)**2 + (a1-a2)**2 + (b1_-b2_)**2;
+}
+
+function colorDistRGB(r1,g1,b1, r2,g2,b2) {
+  return (r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2;
+}
+
+function nearestColor(r, g, b, useLab, enabledPalette) {
+  let best = null, bestDist = Infinity;
+  const distFn = useLab ? colorDistLab : colorDistRGB;
+  for (const c of enabledPalette) {
+    const d = distFn(r, g, b, c.r, c.g, c.b);
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best;
+}
+
+// ─────────────────────────────────────────────
+// PALETTE UI
+// ─────────────────────────────────────────────
+function buildPalette() {
+  const grid = document.getElementById('paletteGrid');
+  grid.innerHTML = '';
+  BASE_COLORS.forEach((bc, bi) => {
+    const shades = PALETTE.filter(p => p.baseIdx === bi);
+    const group = document.createElement('div');
+    group.className = 'color-group';
+    group.dataset.baseIdx = bi;
+    group.title = bc.name;
+
+    // 3 shade swatches stacked
+    shades.forEach(s => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch';
+      sw.style.background = `rgb(${s.r},${s.g},${s.b})`;
+      group.appendChild(sw);
+    });
+
+    // Tooltip
+    const tip = document.createElement('div');
+    tip.className = 'color-tooltip';
+    tip.textContent = bc.name;
+    group.appendChild(tip);
+
+    group.addEventListener('click', () => {
+      if (excludedColors.has(bi)) {
+        excludedColors.delete(bi);
+        group.classList.remove('excluded');
+      } else {
+        excludedColors.add(bi);
+        group.classList.add('excluded');
+      }
+      updateColorCount();
+    });
+
+    grid.appendChild(group);
+  });
+  updateColorCount();
+}
+
+function updateColorCount() {
+  const enabled = BASE_COLORS.length - excludedColors.size;
+  document.getElementById('colorCount').textContent = enabled * 3;
+}
+
+document.getElementById('enableAllBtn').addEventListener('click', () => {
+  excludedColors.clear();
+  document.querySelectorAll('.color-group').forEach(g => g.classList.remove('excluded'));
+  updateColorCount();
+});
+
+document.getElementById('disableAllBtn').addEventListener('click', () => {
+  BASE_COLORS.forEach((_, bi) => excludedColors.add(bi));
+  document.querySelectorAll('.color-group').forEach(g => g.classList.add('excluded'));
+  updateColorCount();
+});
+
+// ─────────────────────────────────────────────
+// STEPS NAVIGATION
+// ─────────────────────────────────────────────
+function goToStep(n) {
+  currentStep = n;
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`panel${i}`).classList.toggle('active', i === n);
+    const dot = document.getElementById(`stepDot${i}`);
+    const item = document.getElementById(`stepItem${i}`);
+    dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : '');
+    item.className = 'step-item ' + (i < n ? 'done' : i === n ? 'active' : '');
+    if (i < n) dot.textContent = '✓';
+    else dot.textContent = i;
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────────
+// STEP 1: UPLOAD
+// ─────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadImage(e.target.files[0]); });
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      initCrop(img);
+      goToStep(2);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────────
+// STEP 2: CROP
+// ─────────────────────────────────────────────
+const cropCanvas = document.getElementById('cropCanvas');
+const cropCtx = cropCanvas.getContext('2d');
+let scale = 1;
+
+function initCrop(img) {
+  const maxW = Math.min(img.width, window.innerWidth - 80);
+  const maxH = 500;
+  scale = Math.min(maxW / img.width, maxH / img.height, 1);
+  cropCanvas.width = Math.floor(img.width * scale);
+  cropCanvas.height = Math.floor(img.height * scale);
+  cropCtx.drawImage(img, 0, 0, cropCanvas.width, cropCanvas.height);
+  // Default: select all
+  cropState = { x: 0, y: 0, w: cropCanvas.width, h: cropCanvas.height, dragging: false, startX: 0, startY: 0, mode: 'none' };
+  drawCropOverlay();
+}
+
+function drawCropOverlay() {
+  // Redraw base image
+  cropCtx.drawImage(originalImage, 0, 0, cropCanvas.width, cropCanvas.height);
+  const { x, y, w, h } = cropState;
+  if (w === 0 || h === 0) return;
+  // Dark overlay outside selection
+  cropCtx.fillStyle = 'rgba(0,0,0,0.6)';
+  cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+  // Clear inside selection
+  cropCtx.clearRect(x, y, w, h);
+  cropCtx.drawImage(originalImage,
+    (x/scale), (y/scale), (w/scale), (h/scale),
+    x, y, w, h
+  );
+  // Border
+  cropCtx.strokeStyle = '#4ade80';
+  cropCtx.lineWidth = 2;
+  cropCtx.strokeRect(x+1, y+1, w-2, h-2);
+  // Grid lines (rule of thirds)
+  cropCtx.strokeStyle = 'rgba(74,222,128,0.3)';
+  cropCtx.lineWidth = 1;
+  for (let i = 1; i < 3; i++) {
+    cropCtx.beginPath(); cropCtx.moveTo(x + w*i/3, y); cropCtx.lineTo(x + w*i/3, y+h); cropCtx.stroke();
+    cropCtx.beginPath(); cropCtx.moveTo(x, y + h*i/3); cropCtx.lineTo(x+w, y + h*i/3); cropCtx.stroke();
+  }
+  // Handles
+  const handles = getHandles();
+  handles.forEach(hd => {
+    cropCtx.fillStyle = '#4ade80';
+    cropCtx.fillRect(hd.x-5, hd.y-5, 10, 10);
+  });
+
+  const realW = Math.round(w / scale);
+  const realH = Math.round(h / scale);
+  document.getElementById('cropInfo').textContent = `${realW} × ${realH} px`;
+}
+
+function getHandles() {
+  const { x, y, w, h } = cropState;
+  return [
+    { id: 'nw', x: x,   y: y   }, { id: 'n',  x: x+w/2, y: y   }, { id: 'ne', x: x+w, y: y   },
+    { id: 'w',  x: x,   y: y+h/2 },                                  { id: 'e',  x: x+w, y: y+h/2 },
+    { id: 'sw', x: x,   y: y+h  }, { id: 's',  x: x+w/2, y: y+h }, { id: 'se', x: x+w, y: y+h  },
+  ];
+}
+
+function getHitHandle(mx, my) {
+  return getHandles().find(h => Math.abs(mx-h.x) < 8 && Math.abs(my-h.y) < 8) || null;
+}
+
+cropCanvas.addEventListener('mousedown', e => {
+  const rect = cropCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const handle = getHitHandle(mx, my);
+  if (handle) {
+    cropState.mode = 'resize'; cropState.resizeHandle = handle.id;
+  } else if (mx >= cropState.x && mx <= cropState.x+cropState.w && my >= cropState.y && my <= cropState.y+cropState.h) {
+    cropState.mode = 'move';
+  } else {
+    cropState.mode = 'draw';
+    cropState.x = mx; cropState.y = my; cropState.w = 0; cropState.h = 0;
+  }
+  cropState.startX = mx; cropState.startY = my;
+  cropState.origState = { ...cropState };
+});
+
+cropCanvas.addEventListener('mousemove', e => {
+  const rect = cropCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  if (!e.buttons) {
+    const h = getHitHandle(mx, my);
+    cropCanvas.style.cursor = h ? getResizeCursor(h.id) : (mx >= cropState.x && mx <= cropState.x+cropState.w && my >= cropState.y && my <= cropState.y+cropState.h ? 'move' : 'crosshair');
+    return;
+  }
+  const dx = mx - cropState.startX, dy = my - cropState.startY;
+  const cW = cropCanvas.width, cH = cropCanvas.height;
+  if (cropState.mode === 'draw') {
+    const x0 = cropState.startX, y0 = cropState.startY;
+    let nx = Math.min(x0,mx), ny = Math.min(y0,my), nw = Math.abs(dx), nh = Math.abs(dy);
+    if (e.shiftKey) { const s = Math.min(nw,nh); nw=s; nh=s; }
+    cropState.x = Math.max(0, nx); cropState.y = Math.max(0, ny);
+    cropState.w = Math.min(nw, cW - cropState.x);
+    cropState.h = Math.min(nh, cH - cropState.y);
+  } else if (cropState.mode === 'move') {
+    let nx = cropState.origState.x + dx, ny = cropState.origState.y + dy;
+    nx = Math.max(0, Math.min(nx, cW - cropState.w));
+    ny = Math.max(0, Math.min(ny, cH - cropState.h));
+    cropState.x = nx; cropState.y = ny;
+  } else if (cropState.mode === 'resize') {
+    const o = cropState.origState;
+    let { x, y, w, h } = o;
+    const hd = cropState.resizeHandle;
+    if (hd.includes('e')) w = Math.max(10, o.w + dx);
+    if (hd.includes('s')) h = Math.max(10, o.h + dy);
+    if (hd.includes('w')) { x = Math.min(o.x+o.w-10, o.x+dx); w = o.w - (x-o.x); }
+    if (hd.includes('n')) { y = Math.min(o.y+o.h-10, o.y+dy); h = o.h - (y-o.y); }
+    cropState.x = Math.max(0, x); cropState.y = Math.max(0, y);
+    cropState.w = Math.min(w, cW - cropState.x);
+    cropState.h = Math.min(h, cH - cropState.y);
+  }
+  drawCropOverlay();
+});
+
+cropCanvas.addEventListener('mouseup', () => { cropState.mode = 'none'; });
+
+// Touch support
+cropCanvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; cropCanvas.dispatchEvent(new MouseEvent('mousedown', {clientX:t.clientX,clientY:t.clientY})); });
+cropCanvas.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; cropCanvas.dispatchEvent(new MouseEvent('mousemove', {buttons:1,clientX:t.clientX,clientY:t.clientY})); });
+cropCanvas.addEventListener('touchend',   e => { e.preventDefault(); cropCanvas.dispatchEvent(new MouseEvent('mouseup', {})); });
+
+function getResizeCursor(id) {
+  const map = { n:'n-resize',s:'s-resize',e:'e-resize',w:'w-resize',ne:'ne-resize',nw:'nw-resize',se:'se-resize',sw:'sw-resize' };
+  return map[id] || 'crosshair';
+}
+
+document.getElementById('cropResetBtn').addEventListener('click', () => {
+  cropState = { x: 0, y: 0, w: 0, h: 0, mode: 'none' };
+  drawCropOverlay();
+});
+
+document.getElementById('cropSelectAllBtn').addEventListener('click', () => {
+  cropState = { x: 0, y: 0, w: cropCanvas.width, h: cropCanvas.height, mode: 'none' };
+  drawCropOverlay();
+});
+
+document.getElementById('cropConfirmBtn').addEventListener('click', () => {
+  if (cropState.w < 4 || cropState.h < 4) { showToast('Please select a region first!'); return; }
+  const tempCanvas = document.createElement('canvas');
+  const sw = Math.round(cropState.w / scale), sh = Math.round(cropState.h / scale);
+  const sx = Math.round(cropState.x / scale), sy = Math.round(cropState.y / scale);
+  tempCanvas.width = sw; tempCanvas.height = sh;
+  const tCtx = tempCanvas.getContext('2d');
+  tCtx.drawImage(originalImage, sx, sy, sw, sh, 0, 0, sw, sh);
+  croppedImageData = { canvas: tempCanvas, x: sx, y: sy, w: sw, h: sh };
+  // Show in preview
+  const pv = document.getElementById('previewCropCanvas');
+  pv.width = sw; pv.height = sh;
+  pv.getContext('2d').drawImage(tempCanvas, 0, 0);
+  goToStep(3);
+});
+
+document.getElementById('backTo1Btn').addEventListener('click', () => goToStep(1));
+document.getElementById('backTo2Btn').addEventListener('click', () => goToStep(2));
+document.getElementById('backTo3Btn').addEventListener('click', () => goToStep(3));
+
+// ─────────────────────────────────────────────
+// STEP 3: SETTINGS
+// ─────────────────────────────────────────────
+// Resolution buttons
+let selectedRes = 128;
+document.querySelectorAll('.res-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const v = btn.dataset.res;
+    const customRow = document.getElementById('customResRow');
+    if (v === 'custom') {
+      customRow.style.display = 'flex';
+      selectedRes = 'custom';
+    } else {
+      customRow.style.display = 'none';
+      selectedRes = parseInt(v);
+    }
+  });
+});
+
+// Convert button
+document.getElementById('convertBtn').addEventListener('click', async () => {
+  if (!croppedImageData) { showToast('Please crop an image first!'); return; }
+  const enabled = PALETTE.filter(p => !excludedColors.has(p.baseIdx));
+  if (enabled.length === 0) { showToast('Enable at least one color!'); return; }
+
+  let w, h;
+  if (selectedRes === 'custom') {
+    w = parseInt(document.getElementById('customW').value) || 128;
+    h = parseInt(document.getElementById('customH').value) || 128;
+  } else {
+    w = h = selectedRes;
+  }
+  w = Math.max(8, Math.min(1024, w));
+  h = Math.max(8, Math.min(1024, h));
+  outputW = w; outputH = h;
+
+  const useLab = document.getElementById('labToggle').checked;
+  const dither = document.getElementById('ditherToggle').checked;
+
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('convertBtn').disabled = true;
+
+  await new Promise(r => setTimeout(r, 10)); // let UI update
+
+  try {
+    const result = await convertImage(croppedImageData.canvas, w, h, enabled, useLab, dither);
+    outputImageData = result;
+    displayResult(result, w, h, enabled);
+    goToStep(4);
+  } catch(err) {
+    console.error(err);
+    showToast('Conversion failed: ' + err.message);
+  }
+
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('convertBtn').disabled = false;
+});
+
+// ─────────────────────────────────────────────
+// CONVERSION ENGINE
+// ─────────────────────────────────────────────
+async function convertImage(srcCanvas, outW, outH, palette, useLab, dither) {
+  // Scale source to output dimensions
+  const scaled = document.createElement('canvas');
+  scaled.width = outW; scaled.height = outH;
+  const sCtx = scaled.getContext('2d');
+  sCtx.imageSmoothingEnabled = true;
+  sCtx.imageSmoothingQuality = 'high';
+  sCtx.drawImage(srcCanvas, 0, 0, outW, outH);
+
+  const imgData = sCtx.getImageData(0, 0, outW, outH);
+  const data = imgData.data; // RGBA flat array
+  const colorUsage = new Map(); // paletteId -> count
+
+  // Floyd-Steinberg error diffusion
+  const errR = new Float32Array(outW * outH);
+  const errG = new Float32Array(outW * outH);
+  const errB = new Float32Array(outW * outH);
+
+  const updateInterval = Math.max(1, Math.floor(outH / 20));
+
+  for (let y = 0; y < outH; y++) {
+    if (y % updateInterval === 0) {
+      const pct = Math.round(y / outH * 100);
+      document.getElementById('progressBar').style.width = pct + '%';
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    for (let x = 0; x < outW; x++) {
+      const i = (y * outW + x) * 4;
+      const idx = y * outW + x;
+      let r = data[i]   + errR[idx];
+      let g = data[i+1] + errG[idx];
+      let b = data[i+2] + errB[idx];
+
+      r = Math.max(0, Math.min(255, r));
+      g = Math.max(0, Math.min(255, g));
+      b = Math.max(0, Math.min(255, b));
+
+      const best = nearestColor(r, g, b, useLab, palette);
+      data[i]   = best.r;
+      data[i+1] = best.g;
+      data[i+2] = best.b;
+      data[i+3] = 255;
+
+      colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1);
+
+      if (dither) {
+        const er = r - best.r, eg = g - best.g, eb = b - best.b;
+        const distribute = (xi, yi, factor) => {
+          if (xi < 0 || xi >= outW || yi >= outH) return;
+          const ni = yi * outW + xi;
+          errR[ni] += er * factor;
+          errG[ni] += eg * factor;
+          errB[ni] += eb * factor;
+        };
+        distribute(x+1, y,   7/16);
+        distribute(x-1, y+1, 3/16);
+        distribute(x,   y+1, 5/16);
+        distribute(x+1, y+1, 1/16);
+      }
+    }
+  }
+
+  document.getElementById('progressBar').style.width = '100%';
+
+  // Build usage list
+  const usage = [];
+  colorUsage.forEach((count, id) => {
+    const c = palette.find(p => p.id === id);
+    if (c) usage.push({ ...c, count });
+  });
+
+  return { imgData, usage, outW, outH };
+}
+
+// ─────────────────────────────────────────────
+// STEP 4: DISPLAY RESULT
+// ─────────────────────────────────────────────
+function displayResult(result, w, h, palette) {
+  const outCanvas = document.getElementById('outputCanvas');
+  outCanvas.width = w; outCanvas.height = h;
+  outCanvas.getContext('2d').putImageData(result.imgData, 0, 0);
+
+  lastColorUsage = result.usage;
+  renderColorList(lastColorUsage, lastSortMode);
+
+  const showGuide = document.getElementById('numberedToggle').checked;
+  document.getElementById('downloadGuideBtn').style.display = showGuide ? 'inline-flex' : 'none';
+
+  if (showGuide) buildPaintGuide(result, w, h);
+
+  const total = w * h;
+  const unique = result.usage.length;
+  document.getElementById('instructionsSub').textContent =
+    `${unique} unique colors · ${total.toLocaleString()} total pixels`;
+}
+
+function renderColorList(usage, sort) {
+  const list = document.getElementById('colorList');
+  let sorted = [...usage];
+  if (sort === 'count') sorted.sort((a,b) => b.count - a.count);
+  else if (sort === 'name') sorted.sort((a,b) => a.name.localeCompare(b.name));
+  else if (sort === 'hue') sorted.sort((a,b) => rgbToHue(a.r,a.g,a.b) - rgbToHue(b.r,b.g,b.b));
+
+  list.innerHTML = '';
+  sorted.forEach((c, idx) => {
+    const entry = document.createElement('div');
+    entry.className = 'color-entry';
+    const pct = (c.count / (outputW * outputH) * 100).toFixed(1);
+    entry.innerHTML = `
+      <div class="entry-swatch" style="background:rgb(${c.r},${c.g},${c.b})"></div>
+      <div class="entry-info">
+        <div class="entry-name">${c.name} (${c.shadeName})</div>
+        <div class="entry-count">${c.count.toLocaleString()} px · ${pct}%</div>
+      </div>
+      <div class="entry-num">#${idx+1}</div>
+    `;
+    list.appendChild(entry);
+  });
+}
+
+function rgbToHue(r,g,b) {
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), d=max-min;
+  if(d===0) return 0;
+  let h = max===r ? ((g-b)/d)%6 : max===g ? (b-r)/d+2 : (r-g)/d+4;
+  return (h*60+360)%360;
+}
+
+document.getElementById('sortSelect').addEventListener('change', e => {
+  lastSortMode = e.target.value;
+  renderColorList(lastColorUsage, lastSortMode);
+});
+
+// ─────────────────────────────────────────────
+// PAINT GUIDE
+// ─────────────────────────────────────────────
+function buildPaintGuide(result, w, h) {
+  const sorted = [...result.usage].sort((a,b) => b.count - a.count);
+  const colorToNum = new Map();
+  sorted.forEach((c, i) => colorToNum.set(c.id, i + 1));
+
+  const cellSize = Math.max(8, Math.min(24, Math.floor(800 / w)));
+  const refCanvas = document.getElementById('refCanvas');
+  refCanvas.width = w * cellSize;
+  refCanvas.height = h * cellSize;
+  const rCtx = refCanvas.getContext('2d');
+
+  const data = result.imgData.data;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = data[i], g = data[i+1], b = data[i+2];
+      rCtx.fillStyle = `rgb(${r},${g},${b})`;
+      const cx = x * cellSize, cy = y * cellSize;
+      rCtx.fillRect(cx, cy, cellSize, cellSize);
+      // Number label
+      if (cellSize >= 10) {
+        const palColor = result.usage.find(c => c.r===r && c.g===g && c.b===b);
+        if (palColor) {
+          const num = colorToNum.get(palColor.id);
+          const brightness = 0.299*r + 0.587*g + 0.114*b;
+          rCtx.fillStyle = brightness > 128 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
+          rCtx.font = `bold ${Math.max(5, cellSize-3)}px monospace`;
+          rCtx.textAlign = 'center';
+          rCtx.textBaseline = 'middle';
+          rCtx.fillText(num, cx + cellSize/2, cy + cellSize/2);
+        }
+      }
+      // Grid
+      rCtx.strokeStyle = 'rgba(0,0,0,0.15)';
+      rCtx.lineWidth = 0.5;
+      rCtx.strokeRect(cx, cy, cellSize, cellSize);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// DOWNLOAD
+// ─────────────────────────────────────────────
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const canvas = document.getElementById('outputCanvas');
+  const a = document.createElement('a');
+  a.download = 'artmap.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  showToast('✓ ArtMap PNG downloaded!');
+});
+
+document.getElementById('downloadGuideBtn').addEventListener('click', () => {
+  // Build guide image: reference canvas + legend side by side
+  const refCanvas = document.getElementById('refCanvas');
+  if (refCanvas.width === 0) return;
+
+  const sorted = [...lastColorUsage].sort((a,b) => b.count - a.count);
+  const legendW = 260;
+  const rowH = 24;
+  const legendH = Math.max(refCanvas.height, sorted.length * rowH + 50);
+
+  const guideCanvas = document.createElement('canvas');
+  guideCanvas.width = refCanvas.width + legendW + 20;
+  guideCanvas.height = Math.max(refCanvas.height, legendH) + 50;
+  const gCtx = guideCanvas.getContext('2d');
+
+  gCtx.fillStyle = '#0a0e17';
+  gCtx.fillRect(0, 0, guideCanvas.width, guideCanvas.height);
+
+  // Title
+  gCtx.fillStyle = '#4ade80';
+  gCtx.font = 'bold 18px monospace';
+  gCtx.textAlign = 'center';
+  gCtx.fillText('ArtMap Paint Guide', guideCanvas.width / 2, 32);
+
+  // Ref canvas
+  gCtx.drawImage(refCanvas, 0, 50);
+
+  // Legend
+  const lx = refCanvas.width + 10;
+  gCtx.fillStyle = '#94a3b8';
+  gCtx.font = 'bold 12px monospace';
+  gCtx.textAlign = 'left';
+  gCtx.fillText('COLOR LEGEND', lx, 70);
+
+  sorted.forEach((c, i) => {
+    const ly = 90 + i * rowH;
+    if (ly > guideCanvas.height - 20) return;
+    gCtx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
+    gCtx.fillRect(lx, ly, 16, 16);
+    gCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+    gCtx.lineWidth = 0.5;
+    gCtx.strokeRect(lx, ly, 16, 16);
+
+    gCtx.fillStyle = '#e2e8f0';
+    gCtx.font = `11px monospace`;
+    gCtx.fillText(`${i+1}. ${c.name} (${c.shadeName})`, lx + 22, ly + 12);
+
+    gCtx.fillStyle = '#4b6282';
+    gCtx.font = '10px monospace';
+    gCtx.fillText(`${c.count.toLocaleString()} px`, lx + 22, ly + 24);
+  });
+
+  const a = document.createElement('a');
+  a.download = 'artmap-guide.png';
+  a.href = guideCanvas.toDataURL('image/png');
+  a.click();
+  showToast('✓ Paint guide downloaded!');
+});
+
+document.getElementById('copyListBtn').addEventListener('click', () => {
+  const sorted = [...lastColorUsage].sort((a,b) => b.count - a.count);
+  const text = sorted.map((c,i) => `${i+1}. ${c.name} (${c.shadeName}) — ${c.count} pixels (${(c.count/(outputW*outputH)*100).toFixed(1)}%)`).join('\n');
+  navigator.clipboard.writeText(text).then(() => showToast('✓ Color list copied!'));
+});
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+buildPalette();
+</script>
+</body>
+</html>
