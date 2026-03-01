@@ -1037,6 +1037,7 @@
 <footer>
   <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaСube Minecraft Server</div>
   <div style="margin-top:4px; opacity:0.5;">Uses the official Minecraft map color palette · 61 base colors · 183 shades · 32×32 per map</div>
+  <div style="margin-top:12px; opacity:0.4; font-size:11px;">Made by <a href="https://claude.ai" target="_blank">Claude</a> (Anthropic) · AI-generated tool</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1720,7 +1721,30 @@ function buildPaintGuide(result, w, h) {
     rCtx.stroke();
   }
 
-
+  // Label each canvas tile (e.g. "Map 1", "Map 2"...)
+  const tilesX = Math.ceil(w / ARTMAP_SIZE);
+  const tilesY = Math.ceil(h / ARTMAP_SIZE);
+  rCtx.font = `bold ${Math.max(10, cellSize * 3)}px monospace`;
+  rCtx.textAlign = 'center';
+  rCtx.textBaseline = 'top';
+  let mapNum = 1;
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const tileX = tx * ARTMAP_SIZE * cellSize;
+      const tileY = ty * ARTMAP_SIZE * cellSize;
+      const tileW = Math.min(ARTMAP_SIZE, w - tx * ARTMAP_SIZE) * cellSize;
+      const tileH = Math.min(ARTMAP_SIZE, h - ty * ARTMAP_SIZE) * cellSize;
+      // Semi-transparent label background
+      const labelText = `Map ${mapNum++}`;
+      const labelFontSize = Math.max(10, cellSize * 3);
+      const labelPad = 6;
+      const metrics = labelFontSize * labelText.length * 0.6;
+      rCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      rCtx.fillRect(tileX + tileW/2 - metrics/2 - labelPad, tileY + 4, metrics + labelPad*2, labelFontSize + labelPad);
+      rCtx.fillStyle = '#4ade80';
+      rCtx.fillText(labelText, tileX + tileW/2, tileY + 4 + labelPad/2);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
