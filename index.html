@@ -369,6 +369,16 @@
     transition: all 0.2s;
   }
 
+  .res-group-label {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
   .res-btn:hover { border-color: var(--accent2); color: var(--accent2); }
   .res-btn.active {
     border-color: var(--accent2);
@@ -879,16 +889,43 @@
       <div class="setting-group">
         <span class="setting-label">Output Resolution</span>
         <div class="res-options">
-          <button class="res-btn active" data-res="128">128×128</button>
-          <button class="res-btn" data-res="256">256×256</button>
-          <button class="res-btn" data-res="512">512×512</button>
-          <button class="res-btn" data-res="custom">Custom</button>
+          <div class="res-group-label">1 Map</div>
+          <button class="res-btn active" data-w="128" data-h="128">128×128</button>
+
+          <div class="res-group-label" style="margin-top:8px;">2 Maps</div>
+          <button class="res-btn" data-w="256" data-h="128">256×128</button>
+          <button class="res-btn" data-w="128" data-h="256">128×256</button>
+
+          <div class="res-group-label" style="margin-top:8px;">4 Maps</div>
+          <button class="res-btn" data-w="256" data-h="256">256×256</button>
+
+          <div class="res-group-label" style="margin-top:8px;">6 Maps</div>
+          <button class="res-btn" data-w="384" data-h="256">384×256</button>
+          <button class="res-btn" data-w="256" data-h="384">256×384</button>
+
+          <div class="res-group-label" style="margin-top:8px;">9 Maps</div>
+          <button class="res-btn" data-w="384" data-h="384">384×384</button>
+
+          <div class="res-group-label" style="margin-top:8px;">12 Maps</div>
+          <button class="res-btn" data-w="512" data-h="384">512×384</button>
+          <button class="res-btn" data-w="384" data-h="512">384×512</button>
+
+          <div class="res-group-label" style="margin-top:8px;">16 Maps</div>
+          <button class="res-btn" data-w="512" data-h="512">512×512</button>
+
+          <div class="res-group-label" style="margin-top:8px;">Custom</div>
+          <button class="res-btn" data-w="custom" data-h="custom">Custom</button>
         </div>
         <div class="custom-res" id="customResRow" style="display:none;">
-          <input type="number" id="customW" value="200" min="16" max="1024" placeholder="W">
-          <span>×</span>
-          <input type="number" id="customH" value="200" min="16" max="1024" placeholder="H">
-          <span style="color:var(--text3);font-size:12px;">px</span>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <input type="number" id="customW" value="256" min="16" max="2048" placeholder="256">
+            <span style="font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px;">WIDTH</span>
+          </div>
+          <span style="color:var(--text3); font-family:var(--mono); margin-bottom:18px;">×</span>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <input type="number" id="customH" value="256" min="16" max="2048" placeholder="256">
+            <span style="font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:1px;">HEIGHT</span>
+          </div>
         </div>
         <div style="margin-top:10px; font-family:var(--mono); font-size:11px; color:var(--text3);">
           Note: ArtMap canvas is 128×128 per map item
@@ -1422,18 +1459,21 @@ document.getElementById('backTo3Btn').addEventListener('click', () => goToStep(3
 // ─────────────────────────────────────────────
 // Resolution buttons
 let selectedRes = 128;
+let selectedResW = 128, selectedResH = 128;
 document.querySelectorAll('.res-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const v = btn.dataset.res;
+    const w = btn.dataset.w, h = btn.dataset.h;
     const customRow = document.getElementById('customResRow');
-    if (v === 'custom') {
+    if (w === 'custom') {
       customRow.style.display = 'flex';
       selectedRes = 'custom';
     } else {
       customRow.style.display = 'none';
-      selectedRes = parseInt(v);
+      selectedRes = 'preset';
+      selectedResW = parseInt(w);
+      selectedResH = parseInt(h);
     }
   });
 });
@@ -1446,10 +1486,11 @@ document.getElementById('convertBtn').addEventListener('click', async () => {
 
   let w, h;
   if (selectedRes === 'custom') {
-    w = parseInt(document.getElementById('customW').value) || 128;
-    h = parseInt(document.getElementById('customH').value) || 128;
+    w = parseInt(document.getElementById('customW').value) || 256;
+    h = parseInt(document.getElementById('customH').value) || 256;
   } else {
-    w = h = selectedRes;
+    w = selectedResW;
+    h = selectedResH;
   }
   w = Math.max(8, Math.min(1024, w));
   h = Math.max(8, Math.min(1024, h));
@@ -1651,10 +1692,56 @@ function buildPaintGuide(result, w, h) {
           rCtx.fillText(num, cx + cellSize/2, cy + cellSize/2);
         }
       }
-      // Grid
+      // Cell grid
       rCtx.strokeStyle = 'rgba(0,0,0,0.15)';
       rCtx.lineWidth = 0.5;
       rCtx.strokeRect(cx, cy, cellSize, cellSize);
+    }
+  }
+
+  // ArtMap canvas boundary grid (every 128 pixels)
+  const ARTMAP_SIZE = 128;
+  rCtx.strokeStyle = '#4ade80';
+  rCtx.lineWidth = Math.max(2, cellSize * 0.25);
+  rCtx.setLineDash([]);
+
+  for (let gx = 0; gx <= w; gx += ARTMAP_SIZE) {
+    if (gx === 0 || gx === w) continue; // skip outer edges
+    rCtx.beginPath();
+    rCtx.moveTo(gx * cellSize, 0);
+    rCtx.lineTo(gx * cellSize, h * cellSize);
+    rCtx.stroke();
+  }
+  for (let gy = 0; gy <= h; gy += ARTMAP_SIZE) {
+    if (gy === 0 || gy === h) continue;
+    rCtx.beginPath();
+    rCtx.moveTo(0, gy * cellSize);
+    rCtx.lineTo(w * cellSize, gy * cellSize);
+    rCtx.stroke();
+  }
+
+  // Label each canvas tile (e.g. "Map 1", "Map 2"...)
+  const tilesX = Math.ceil(w / ARTMAP_SIZE);
+  const tilesY = Math.ceil(h / ARTMAP_SIZE);
+  rCtx.font = `bold ${Math.max(10, cellSize * 3)}px monospace`;
+  rCtx.textAlign = 'center';
+  rCtx.textBaseline = 'top';
+  let mapNum = 1;
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const tileX = tx * ARTMAP_SIZE * cellSize;
+      const tileY = ty * ARTMAP_SIZE * cellSize;
+      const tileW = Math.min(ARTMAP_SIZE, w - tx * ARTMAP_SIZE) * cellSize;
+      const tileH = Math.min(ARTMAP_SIZE, h - ty * ARTMAP_SIZE) * cellSize;
+      // Semi-transparent label background
+      const labelText = `Map ${mapNum++}`;
+      const labelFontSize = Math.max(10, cellSize * 3);
+      const labelPad = 6;
+      const metrics = labelFontSize * labelText.length * 0.6;
+      rCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      rCtx.fillRect(tileX + tileW/2 - metrics/2 - labelPad, tileY + 4, metrics + labelPad*2, labelFontSize + labelPad);
+      rCtx.fillStyle = '#4ade80';
+      rCtx.fillText(labelText, tileX + tileW/2, tileY + 4 + labelPad/2);
     }
   }
 }
