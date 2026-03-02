@@ -330,10 +330,6 @@
     gap: 16px;
   }
 
-  @media (max-width: 640px) {
-    .settings-grid { flex-direction: column; }
-  }
-
   .setting-group {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -343,13 +339,12 @@
     flex-direction: column;
   }
 
-  /* Scrollable resolution list, height-locked to match the rendering panel */
+  /* Scrollable resolution list */
   .res-scroll {
     overflow-y: auto;
     overflow-x: hidden;
     max-height: 152px;
     padding-right: 6px;
-    flex: 1;
   }
 
   .res-scroll::-webkit-scrollbar { width: 4px; }
@@ -506,7 +501,8 @@
     height: 22px;
     border-radius: 3px;
     border: 1px solid rgba(255,255,255,0.1);
-    transition: all 0.15s;
+    background-color: transparent;
+    transition: transform 0.15s;
   }
 
   .color-group:hover .color-swatch { transform: scale(1.2); z-index: 10; }
@@ -695,6 +691,7 @@
     border-radius: 4px;
     flex-shrink: 0;
     border: 1px solid rgba(255,255,255,0.15);
+    background-color: transparent;
   }
 
   .entry-info { flex: 1; min-width: 0; }
@@ -1189,8 +1186,8 @@ const BASE_COLORS = [
 ];
 
 // Build full palette: 3 shades per base
-const MULTS = [180, 220, 255];
-const SHADE_NAMES = ['Dark', 'Mid', 'Light'];
+const MULTS = [255, 180, 135];
+const SHADE_NAMES = ['Base', 'Light', 'Dark'];
 const PALETTE = [];
 
 BASE_COLORS.forEach((bc, bi) => {
@@ -1277,7 +1274,7 @@ function buildPalette() {
     shades.forEach(s => {
       const sw = document.createElement('div');
       sw.className = 'color-swatch';
-      sw.style.background = `rgb(${s.r},${s.g},${s.b})`;
+      sw.style.backgroundColor = `rgb(${s.r},${s.g},${s.b})`;
       group.appendChild(sw);
     });
 
@@ -1736,7 +1733,7 @@ function renderColorList(usage, sort) {
     entry.className = 'color-entry';
     const pct = (c.count / (outputW * outputH) * 100).toFixed(1);
     entry.innerHTML = `
-      <div class="entry-swatch" style="background:rgb(${c.r},${c.g},${c.b})"></div>
+      <div class="entry-swatch" style="background-color:rgb(${c.r},${c.g},${c.b})"></div>
       <div class="entry-info">
         <div class="entry-name">${c.name} (${c.shadeName})</div>
         <div class="entry-count">${c.count.toLocaleString()} px · ${pct}%</div>
