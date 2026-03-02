@@ -325,13 +325,13 @@
 
   /* Settings */
   .settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
   @media (max-width: 640px) {
-    .settings-grid { grid-template-columns: 1fr; }
+    .settings-grid { flex-direction: column; }
   }
 
   .setting-group {
@@ -339,7 +339,23 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 18px;
+    display: flex;
+    flex-direction: column;
   }
+
+  /* Scrollable resolution list, height-locked to match the rendering panel */
+  .res-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 152px;
+    padding-right: 6px;
+    flex: 1;
+  }
+
+  .res-scroll::-webkit-scrollbar { width: 4px; }
+  .res-scroll::-webkit-scrollbar-track { background: var(--surface3); border-radius: 2px; }
+  .res-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .res-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
 
   .setting-label {
     font-family: var(--mono);
@@ -886,35 +902,96 @@
     <div class="panel-sub">// configure resolution, dithering, and color palette</div>
 
     <div class="settings-grid">
+      <!-- Resolution on top -->
       <div class="setting-group">
         <span class="setting-label">Output Resolution</span>
-        <div class="res-options">
-          <div class="res-group-label">1 Map</div>
-          <button class="res-btn active" data-w="32" data-h="32">32×32</button>
+        <div id="autoResHint" style="display:none; margin-bottom:10px; font-family:var(--mono); font-size:11px; color:var(--accent); background:var(--accent-dim); border:1px solid var(--accent); border-radius:6px; padding:6px 10px;">
+          ✦ Auto-selected best fit for your image's aspect ratio
+        </div>
+        <div class="res-scroll">
+          <div class="res-options">
+            <div class="res-group-label">1 Map</div>
+            <button class="res-btn" data-w="32" data-h="32">32×32</button>
 
-          <div class="res-group-label" style="margin-top:8px;">2 Maps</div>
-          <button class="res-btn" data-w="64" data-h="32">64×32</button>
-          <button class="res-btn" data-w="32" data-h="64">32×64</button>
+            <div class="res-group-label" style="margin-top:8px;">2 Maps</div>
+            <button class="res-btn" data-w="64" data-h="32">64×32</button>
+            <button class="res-btn" data-w="32" data-h="64">32×64</button>
 
-          <div class="res-group-label" style="margin-top:8px;">4 Maps</div>
-          <button class="res-btn" data-w="64" data-h="64">64×64</button>
+            <div class="res-group-label" style="margin-top:8px;">3 Maps</div>
+            <button class="res-btn" data-w="96" data-h="32">96×32</button>
+            <button class="res-btn" data-w="32" data-h="96">32×96</button>
 
-          <div class="res-group-label" style="margin-top:8px;">6 Maps</div>
-          <button class="res-btn" data-w="96" data-h="64">96×64</button>
-          <button class="res-btn" data-w="64" data-h="96">64×96</button>
+            <div class="res-group-label" style="margin-top:8px;">4 Maps</div>
+            <button class="res-btn" data-w="64" data-h="64">64×64</button>
+            <button class="res-btn" data-w="128" data-h="32">128×32</button>
+            <button class="res-btn" data-w="32" data-h="128">32×128</button>
 
-          <div class="res-group-label" style="margin-top:8px;">9 Maps</div>
-          <button class="res-btn" data-w="96" data-h="96">96×96</button>
+            <div class="res-group-label" style="margin-top:8px;">6 Maps</div>
+            <button class="res-btn" data-w="96" data-h="64">96×64</button>
+            <button class="res-btn" data-w="64" data-h="96">64×96</button>
+            <button class="res-btn" data-w="192" data-h="32">192×32</button>
+            <button class="res-btn" data-w="32" data-h="192">32×192</button>
 
-          <div class="res-group-label" style="margin-top:8px;">12 Maps</div>
-          <button class="res-btn" data-w="128" data-h="96">128×96</button>
-          <button class="res-btn" data-w="96" data-h="128">96×128</button>
+            <div class="res-group-label" style="margin-top:8px;">8 Maps</div>
+            <button class="res-btn" data-w="128" data-h="64">128×64</button>
+            <button class="res-btn" data-w="64" data-h="128">64×128</button>
+            <button class="res-btn" data-w="256" data-h="32">256×32</button>
+            <button class="res-btn" data-w="32" data-h="256">32×256</button>
 
-          <div class="res-group-label" style="margin-top:8px;">16 Maps</div>
-          <button class="res-btn" data-w="128" data-h="128">128×128</button>
+            <div class="res-group-label" style="margin-top:8px;">9 Maps</div>
+            <button class="res-btn" data-w="96" data-h="96">96×96</button>
 
-          <div class="res-group-label" style="margin-top:8px;">Custom</div>
-          <button class="res-btn" data-w="custom" data-h="custom">Custom</button>
+            <div class="res-group-label" style="margin-top:8px;">12 Maps</div>
+            <button class="res-btn" data-w="128" data-h="96">128×96</button>
+            <button class="res-btn" data-w="96" data-h="128">96×128</button>
+            <button class="res-btn" data-w="192" data-h="64">192×64</button>
+            <button class="res-btn" data-w="64" data-h="192">64×192</button>
+
+            <div class="res-group-label" style="margin-top:8px;">16 Maps</div>
+            <button class="res-btn" data-w="128" data-h="128">128×128</button>
+            <button class="res-btn" data-w="256" data-h="64">256×64</button>
+            <button class="res-btn" data-w="64" data-h="256">64×256</button>
+
+            <div class="res-group-label" style="margin-top:8px;">20 Maps</div>
+            <button class="res-btn" data-w="160" data-h="128">160×128</button>
+            <button class="res-btn" data-w="128" data-h="160">128×160</button>
+
+            <div class="res-group-label" style="margin-top:8px;">24 Maps</div>
+            <button class="res-btn" data-w="192" data-h="128">192×128</button>
+            <button class="res-btn" data-w="128" data-h="192">128×192</button>
+
+            <div class="res-group-label" style="margin-top:8px;">25 Maps</div>
+            <button class="res-btn" data-w="160" data-h="160">160×160</button>
+
+            <div class="res-group-label" style="margin-top:8px;">30 Maps</div>
+            <button class="res-btn" data-w="192" data-h="160">192×160</button>
+            <button class="res-btn" data-w="160" data-h="192">160×192</button>
+
+            <div class="res-group-label" style="margin-top:8px;">32 Maps</div>
+            <button class="res-btn" data-w="256" data-h="128">256×128</button>
+            <button class="res-btn" data-w="128" data-h="256">128×256</button>
+
+            <div class="res-group-label" style="margin-top:8px;">36 Maps</div>
+            <button class="res-btn" data-w="192" data-h="192">192×192</button>
+
+            <div class="res-group-label" style="margin-top:8px;">42 Maps</div>
+            <button class="res-btn" data-w="224" data-h="192">224×192</button>
+            <button class="res-btn" data-w="192" data-h="224">192×224</button>
+
+            <div class="res-group-label" style="margin-top:8px;">48 Maps</div>
+            <button class="res-btn" data-w="256" data-h="192">256×192</button>
+            <button class="res-btn" data-w="192" data-h="256">192×256</button>
+
+            <div class="res-group-label" style="margin-top:8px;">56 Maps</div>
+            <button class="res-btn" data-w="256" data-h="224">256×224</button>
+            <button class="res-btn" data-w="224" data-h="256">224×256</button>
+
+            <div class="res-group-label" style="margin-top:8px;">64 Maps</div>
+            <button class="res-btn" data-w="256" data-h="256">256×256</button>
+
+            <div class="res-group-label" style="margin-top:8px;">Custom</div>
+            <button class="res-btn" data-w="custom" data-h="custom">Custom</button>
+          </div>
         </div>
         <div class="custom-res" id="customResRow" style="display:none;">
           <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
@@ -932,6 +1009,7 @@
         </div>
       </div>
 
+      <!-- Rendering options on bottom -->
       <div class="setting-group">
         <span class="setting-label">Rendering Options</span>
         <div class="toggle-row">
@@ -1035,9 +1113,8 @@
 </div>
 
 <footer>
-  <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaСube Minecraft Server (and other servers that use this plugin)</div>
+  <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaСube Minecraft Server</div>
   <div style="margin-top:4px; opacity:0.5;">Uses the official Minecraft map color palette · 61 base colors · 183 shades · 32×32 per map</div>
-  <div style="margin-top:12px; opacity:0.4; font-size:11px;">Made by <a href="https://claude.ai" target="_blank">Claude</a> (Anthropic) · AI-generated tool</div>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -1448,6 +1525,7 @@ document.getElementById('cropConfirmBtn').addEventListener('click', () => {
   const pv = document.getElementById('previewCropCanvas');
   pv.width = sw; pv.height = sh;
   pv.getContext('2d').drawImage(tempCanvas, 0, 0);
+  autoSelectResolution(sw, sh);
   goToStep(3);
 });
 
@@ -1458,26 +1536,51 @@ document.getElementById('backTo3Btn').addEventListener('click', () => goToStep(3
 // ─────────────────────────────────────────────
 // STEP 3: SETTINGS
 // ─────────────────────────────────────────────
-// Resolution buttons
-let selectedRes = 32;
+let selectedRes = 'preset';
 let selectedResW = 32, selectedResH = 32;
+
+function setActiveResBtn(btn) {
+  document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const w = btn.dataset.w, h = btn.dataset.h;
+  const customRow = document.getElementById('customResRow');
+  if (w === 'custom') {
+    customRow.style.display = 'flex';
+    selectedRes = 'custom';
+  } else {
+    customRow.style.display = 'none';
+    selectedRes = 'preset';
+    selectedResW = parseInt(w);
+    selectedResH = parseInt(h);
+  }
+}
+
 document.querySelectorAll('.res-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.res-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const w = btn.dataset.w, h = btn.dataset.h;
-    const customRow = document.getElementById('customResRow');
-    if (w === 'custom') {
-      customRow.style.display = 'flex';
-      selectedRes = 'custom';
-    } else {
-      customRow.style.display = 'none';
-      selectedRes = 'preset';
-      selectedResW = parseInt(w);
-      selectedResH = parseInt(h);
-    }
+    setActiveResBtn(btn);
+    document.getElementById('autoResHint').style.display = 'none';
   });
 });
+
+function autoSelectResolution(cropW, cropH) {
+  const cropRatio = cropW / cropH;
+  const btns = [...document.querySelectorAll('.res-btn[data-w][data-h]')]
+    .filter(b => b.dataset.w !== 'custom');
+  let bestBtn = null, bestScore = Infinity;
+  btns.forEach(btn => {
+    const bw = parseInt(btn.dataset.w), bh = parseInt(btn.dataset.h);
+    const ratioDiff = Math.abs((bw / bh) - cropRatio);
+    const mapCount = (bw / 32) * (bh / 32);
+    const naturalCount = Math.max(1, (cropW / 32) * (cropH / 32));
+    const sizePenalty = Math.abs(Math.log(mapCount) - Math.log(naturalCount)) * 0.12;
+    if (ratioDiff + sizePenalty < bestScore) { bestScore = ratioDiff + sizePenalty; bestBtn = btn; }
+  });
+  if (bestBtn) {
+    setActiveResBtn(bestBtn);
+    document.getElementById('autoResHint').style.display = 'block';
+    setTimeout(() => bestBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
+  }
+}
 
 // Convert button
 document.getElementById('convertBtn').addEventListener('click', async () => {
