@@ -339,18 +339,46 @@
     flex-direction: column;
   }
 
-  /* Scrollable resolution list */
   .res-scroll {
     overflow-y: auto;
     overflow-x: hidden;
     max-height: 152px;
     padding-right: 6px;
   }
-
   .res-scroll::-webkit-scrollbar { width: 4px; }
   .res-scroll::-webkit-scrollbar-track { background: var(--surface3); border-radius: 2px; }
   .res-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
   .res-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+
+  /* Background color picker row */
+  .bg-color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .bg-swatch-preview {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+  .bg-color-select {
+    flex: 1;
+    min-width: 140px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+  }
+  .bg-color-select:focus { border-color: var(--accent2); }
 
   .setting-label {
     font-family: var(--mono);
@@ -1036,6 +1064,21 @@
             <small>Numbered reference + color list</small>
           </div>
         </div>
+        <div class="toggle-row">
+          <label class="toggle">
+            <input type="checkbox" id="transparencyToggle">
+            <div class="toggle-track"><div class="toggle-thumb"></div></div>
+          </label>
+          <div class="toggle-text">Enable Transparency
+            <small>Transparent pixels for fully transparent source areas</small>
+          </div>
+        </div>
+        <div class="bg-color-row" id="bgColorRow">
+          <div class="bg-swatch-preview" id="bgSwatchPreview"></div>
+          <select class="bg-color-select" id="bgColorSelect">
+            <option value="">Loading colors...</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -1579,6 +1622,35 @@ function autoSelectResolution(cropW, cropH) {
   }
 }
 
+// ─────────────────────────────────────────────
+// BACKGROUND COLOR / TRANSPARENCY
+// ─────────────────────────────────────────────
+function buildBgColorDropdown() {
+  const sel = document.getElementById('bgColorSelect');
+  sel.innerHTML = '';
+  PALETTE.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.name} (${p.shadeName})`;
+    opt.dataset.r = p.r; opt.dataset.g = p.g; opt.dataset.b = p.b;
+    sel.appendChild(opt);
+  });
+  updateBgSwatch();
+}
+
+function updateBgSwatch() {
+  const sel = document.getElementById('bgColorSelect');
+  const opt = sel.options[sel.selectedIndex];
+  const preview = document.getElementById('bgSwatchPreview');
+  if (opt) preview.style.backgroundColor = `rgb(${opt.dataset.r},${opt.dataset.g},${opt.dataset.b})`;
+}
+
+document.getElementById('bgColorSelect').addEventListener('change', updateBgSwatch);
+
+document.getElementById('transparencyToggle').addEventListener('change', e => {
+  document.getElementById('bgColorRow').style.display = e.target.checked ? 'none' : 'flex';
+});
+
 // Convert button
 document.getElementById('convertBtn').addEventListener('click', async () => {
   if (!croppedImageData) { showToast('Please crop an image first!'); return; }
@@ -1599,6 +1671,10 @@ document.getElementById('convertBtn').addEventListener('click', async () => {
 
   const useLab = document.getElementById('labToggle').checked;
   const dither = document.getElementById('ditherToggle').checked;
+  const useTransparency = document.getElementById('transparencyToggle').checked;
+  const bgSel = document.getElementById('bgColorSelect');
+  const bgOpt = bgSel.options[bgSel.selectedIndex];
+  const bgColor = useTransparency ? null : { r: parseInt(bgOpt.dataset.r), g: parseInt(bgOpt.dataset.g), b: parseInt(bgOpt.dataset.b) };
 
   document.getElementById('progressWrap').style.display = 'block';
   document.getElementById('convertBtn').disabled = true;
@@ -1606,7 +1682,7 @@ document.getElementById('convertBtn').addEventListener('click', async () => {
   await new Promise(r => setTimeout(r, 10)); // let UI update
 
   try {
-    const result = await convertImage(croppedImageData.canvas, w, h, enabled, useLab, dither);
+    const result = await convertImage(croppedImageData.canvas, w, h, enabled, useLab, dither, bgColor);
     outputImageData = result;
     displayResult(result, w, h, enabled);
     goToStep(4);
@@ -1623,7 +1699,7 @@ document.getElementById('convertBtn').addEventListener('click', async () => {
 // ─────────────────────────────────────────────
 // CONVERSION ENGINE
 // ─────────────────────────────────────────────
-async function convertImage(srcCanvas, outW, outH, palette, useLab, dither) {
+async function convertImage(srcCanvas, outW, outH, palette, useLab, dither, bgColor) {
   // Scale source to output dimensions
   const scaled = document.createElement('canvas');
   scaled.width = outW; scaled.height = outH;
@@ -1653,9 +1729,34 @@ async function convertImage(srcCanvas, outW, outH, palette, useLab, dither) {
     for (let x = 0; x < outW; x++) {
       const i = (y * outW + x) * 4;
       const idx = y * outW + x;
-      let r = data[i]   + errR[idx];
-      let g = data[i+1] + errG[idx];
-      let b = data[i+2] + errB[idx];
+      const srcAlpha = data[i+3];
+
+      // Transparent pixel handling
+      if (srcAlpha < 128) {
+        if (bgColor === null) {
+          // Keep fully transparent
+          data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 0;
+        } else {
+          // Map background color to nearest palette entry
+          const best = nearestColor(bgColor.r, bgColor.g, bgColor.b, useLab, palette);
+          data[i] = best.r; data[i+1] = best.g; data[i+2] = best.b; data[i+3] = 255;
+          colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1);
+        }
+        continue;
+      }
+
+      // Composite onto background if semi-transparent
+      let sr = data[i], sg = data[i+1], sb = data[i+2];
+      if (srcAlpha < 255 && bgColor !== null) {
+        const a = srcAlpha / 255;
+        sr = Math.round(sr * a + bgColor.r * (1 - a));
+        sg = Math.round(sg * a + bgColor.g * (1 - a));
+        sb = Math.round(sb * a + bgColor.b * (1 - a));
+      }
+
+      let r = sr + errR[idx];
+      let g = sg + errG[idx];
+      let b = sb + errB[idx];
 
       r = Math.max(0, Math.min(255, r));
       g = Math.max(0, Math.min(255, g));
@@ -1938,6 +2039,7 @@ function showToast(msg) {
 // INIT
 // ─────────────────────────────────────────────
 buildPalette();
+buildBgColorDropdown();
 </script>
 </body>
 </html>
