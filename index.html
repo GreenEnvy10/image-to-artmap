@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ArtMap Converter — ManaMap</title>
+<title>ArtMap Converter — Image to Minecraft ArtMap</title>
+<meta name="description" content="Convert any image into a Minecraft ArtMap palette painting with a map-by-map build guide. Runs entirely in your browser.">
+<meta name="theme-color" content="#0a0e17">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%234ade80'/%3E%3Crect x='3' y='3' width='4' height='4' fill='%230a0e17'/%3E%3Crect x='9' y='9' width='4' height='4' fill='%230a0e17'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -859,6 +862,24 @@
     .step-label { display: none; }
     .step-line { min-width: 12px; }
   }
+
+  .tile-grid{display:grid;gap:4px;margin:12px 0;max-height:190px;overflow:auto}
+  .tile-btn{background:var(--surface3);border:1px solid var(--border2);color:var(--text2);font:11px var(--mono);padding:6px 0;border-radius:5px;cursor:pointer}
+  .tile-btn:hover{border-color:var(--accent2)}
+  .tile-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .tile-btn.done{border-color:var(--accent2);color:var(--accent2)}
+  .build-wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+  #tileCanvas{image-rendering:pixelated;max-width:100%;height:auto;border-radius:6px;cursor:crosshair}
+  .build-side{flex:1;min-width:250px}
+  .row-info{font:12px var(--mono);color:var(--text2);background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin:10px 0;line-height:1.9}
+  .run{display:inline-flex;align-items:center;gap:4px;margin-right:10px;white-space:nowrap}
+  .run i{width:12px;height:12px;border-radius:3px;border:1px solid rgba(255,255,255,.25)}
+  .tcolor{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;cursor:pointer;font-size:12px}
+  .tcolor.focus{border-color:var(--gold);background:rgba(251,191,36,.08)}
+  .tcolor.done .n{text-decoration:line-through;opacity:.5}
+  .tcolor .n{flex:1}.tcolor small{font-family:var(--mono);color:var(--text3)}
+  #tileColors{max-height:280px;overflow-y:auto;margin-bottom:10px}
+  .step-item{cursor:pointer}
 </style>
 </head>
 <body>
@@ -1126,6 +1147,7 @@
       <button class="btn btn-primary" id="downloadBtn">⬇ Download ArtMap PNG</button>
       <button class="btn btn-blue" id="downloadGuideBtn" style="display:none;">⬇ Download Paint Guide</button>
       <button class="btn btn-secondary" id="backTo3Btn">← Adjust Settings</button>
+      <button class="btn btn-ghost" id="startOverBtn">↺ New Image</button>
     </div>
 
     <!-- Instructions -->
@@ -1148,18 +1170,35 @@
     </div>
 
     <!-- Hidden ref canvas -->
+    <div class="instructions-panel" id="buildPanel">
+      <div class="setting-label" style="margin-bottom:2px;">Build Guide</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);" id="buildStats"></div>
+      <div class="tile-grid" id="tileGrid"></div>
+      <div class="build-wrap">
+        <canvas id="tileCanvas"></canvas>
+        <div class="build-side">
+          <div id="tileTitle" style="font-family:var(--pixel);color:var(--accent2);font-size:15px;"></div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:4px;">Click a color to isolate it · tick it when painted (progress is saved) · arrow keys switch maps</div>
+          <div class="row-info" id="rowInfo"></div>
+          <div id="tileColors"></div>
+          <button class="btn btn-blue" id="dlTileBtn">⬇ Download this map</button>
+        </div>
+      </div>
+    </div>
     <canvas id="refCanvas"></canvas>
   </div>
 </div>
 
 <footer>
-  <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaСube Minecraft Server</div>
+  <div>Built for <a href="https://manacube.wiki/features/artmap" target="_blank">ManaMap ArtMap</a> on ManaCube Minecraft Server</div>
   <div style="margin-top:4px; opacity:0.5;">Uses the official Minecraft map color palette · 61 base colors · 183 shades · 32×32 per map</div>
 </footer>
 
 <div class="toast" id="toast"></div>
 
 <script>
+const byId = id => document.getElementById(id);
+
 // ─────────────────────────────────────────────
 // PALETTE DATA (61 base colors × 3 shades each)
 // Shades: light (×180/255), mid (base), dark (×135/255)
@@ -1710,7 +1749,8 @@ async function convertImage(srcCanvas, outW, outH, palette, useLab, dither, bgCo
 
   const imgData = sCtx.getImageData(0, 0, outW, outH);
   const data = imgData.data; // RGBA flat array
-  const colorUsage = new Map(); // paletteId -> count
+  const colorUsage = new Map();
+  const ids = new Int16Array(outW * outH).fill(-1); // paletteId -> count
 
   // Floyd-Steinberg error diffusion
   const errR = new Float32Array(outW * outH);
@@ -1740,7 +1780,7 @@ async function convertImage(srcCanvas, outW, outH, palette, useLab, dither, bgCo
           // Map background color to nearest palette entry
           const best = nearestColor(bgColor.r, bgColor.g, bgColor.b, useLab, palette);
           data[i] = best.r; data[i+1] = best.g; data[i+2] = best.b; data[i+3] = 255;
-          colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1);
+          colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1); ids[idx] = best.id;
         }
         continue;
       }
@@ -1768,7 +1808,7 @@ async function convertImage(srcCanvas, outW, outH, palette, useLab, dither, bgCo
       data[i+2] = best.b;
       data[i+3] = 255;
 
-      colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1);
+      colorUsage.set(best.id, (colorUsage.get(best.id) || 0) + 1); ids[idx] = best.id;
 
       if (dither) {
         const er = r - best.r, eg = g - best.g, eb = b - best.b;
@@ -1796,7 +1836,7 @@ async function convertImage(srcCanvas, outW, outH, palette, useLab, dither, bgCo
     if (c) usage.push({ ...c, count });
   });
 
-  return { imgData, usage, outW, outH };
+  return { imgData, usage, outW, outH, ids };
 }
 
 // ─────────────────────────────────────────────
@@ -1813,7 +1853,7 @@ function displayResult(result, w, h, palette) {
   const showGuide = document.getElementById('numberedToggle').checked;
   document.getElementById('downloadGuideBtn').style.display = showGuide ? 'inline-flex' : 'none';
 
-  if (showGuide) buildPaintGuide(result, w, h);
+  initBuild(result);
 
   const total = w * h;
   const unique = result.usage.length;
@@ -1960,62 +2000,35 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
   showToast('✓ ArtMap PNG downloaded!');
 });
 
-document.getElementById('downloadGuideBtn').addEventListener('click', () => {
-  // Build guide image: reference canvas + legend side by side
-  const refCanvas = document.getElementById('refCanvas');
-  if (refCanvas.width === 0) return;
-
-  const sorted = [...lastColorUsage].sort((a,b) => b.count - a.count);
-  const legendW = 260;
-  const rowH = 24;
-  const legendH = Math.max(refCanvas.height, sorted.length * rowH + 50);
-
-  const guideCanvas = document.createElement('canvas');
-  guideCanvas.width = refCanvas.width + legendW + 20;
-  guideCanvas.height = Math.max(refCanvas.height, legendH) + 50;
-  const gCtx = guideCanvas.getContext('2d');
-
-  gCtx.fillStyle = '#0a0e17';
-  gCtx.fillRect(0, 0, guideCanvas.width, guideCanvas.height);
-
-  // Title
-  gCtx.fillStyle = '#4ade80';
-  gCtx.font = 'bold 18px monospace';
-  gCtx.textAlign = 'center';
-  gCtx.fillText('ArtMap Paint Guide', guideCanvas.width / 2, 32);
-
-  // Ref canvas
-  gCtx.drawImage(refCanvas, 0, 50);
-
-  // Legend
-  const lx = refCanvas.width + 10;
-  gCtx.fillStyle = '#94a3b8';
-  gCtx.font = 'bold 12px monospace';
-  gCtx.textAlign = 'left';
-  gCtx.fillText('COLOR LEGEND', lx, 70);
-
-  sorted.forEach((c, i) => {
-    const ly = 90 + i * rowH;
-    if (ly > guideCanvas.height - 20) return;
-    gCtx.fillStyle = `rgb(${c.r},${c.g},${c.b})`;
-    gCtx.fillRect(lx, ly, 16, 16);
-    gCtx.strokeStyle = 'rgba(255,255,255,0.2)';
-    gCtx.lineWidth = 0.5;
-    gCtx.strokeRect(lx, ly, 16, 16);
-
-    gCtx.fillStyle = '#e2e8f0';
-    gCtx.font = `11px monospace`;
-    gCtx.fillText(`${i+1}. ${c.name} (${c.shadeName})`, lx + 22, ly + 12);
-
-    gCtx.fillStyle = '#4b6282';
-    gCtx.font = '10px monospace';
-    gCtx.fillText(`${c.count.toLocaleString()} px`, lx + 22, ly + 24);
+byId('downloadGuideBtn').addEventListener('click', () => {
+  if (!lastResult) return;
+  const { outW: w, outH: h, ids } = lastResult;
+  const Z = Math.max(4, Math.min(20, Math.floor(1000 / Math.max(w, h)))), M = 28;
+  const sorted = [...lastColorUsage].sort((a, b) => b.count - a.count);
+  const W = Math.max(w * Z + M + 10, 800), cols = Math.max(1, Math.floor((W - 20) / 290));
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = M + h * Z + 30 + Math.ceil(sorted.length / cols) * 22 + 30;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0a0e17'; c.fillRect(0, 0, cv.width, cv.height);
+  c.font = 'bold 11px monospace'; c.fillStyle = '#94a3b8'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let tx = 0; tx * MAPPX < w; tx++) c.fillText(tx + 1, M + (tx * MAPPX + Math.min(MAPPX, w - tx * MAPPX) / 2) * Z, M / 2);
+  for (let ty = 0; ty * MAPPX < h; ty++) c.fillText(ty + 1, M / 2, M + (ty * MAPPX + Math.min(MAPPX, h - ty * MAPPX) / 2) * Z);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const id = ids[y * w + x]; if (id < 0) continue;
+    const p = PALETTE[id]; c.fillStyle = `rgb(${p.r},${p.g},${p.b})`; c.fillRect(M + x * Z, M + y * Z, Z, Z);
+  }
+  c.fillStyle = 'rgba(255,255,255,.7)';
+  for (let gx = 0; gx <= w; gx += MAPPX) c.fillRect(M + gx * Z - 1, M, 2, h * Z);
+  for (let gy = 0; gy <= h; gy += MAPPX) c.fillRect(M, M + gy * Z - 1, w * Z, 2);
+  c.fillRect(M + w * Z - 1, M, 2, h * Z); c.fillRect(M, M + h * Z - 1, w * Z, 2);
+  const ly = M + h * Z + 28; c.textAlign = 'left'; c.font = '11px monospace';
+  c.fillStyle = '#4ade80'; c.fillText('COLORS — most used first (numbers on the edges = map column / row)', 10, ly);
+  sorted.forEach((s, i) => {
+    const x = 10 + (i % cols) * 290, y = ly + 24 + Math.floor(i / cols) * 22;
+    c.fillStyle = `rgb(${s.r},${s.g},${s.b})`; c.fillRect(x, y - 8, 14, 14);
+    c.fillStyle = '#e2e8f0'; c.fillText(`${s.name} (${s.shadeName}) · ${s.count}`, x + 22, y);
   });
-
-  const a = document.createElement('a');
-  a.download = 'artmap-guide.png';
-  a.href = guideCanvas.toDataURL('image/png');
-  a.click();
+  const a = document.createElement('a'); a.download = 'artmap-guide.png'; a.href = cv.toDataURL('image/png'); a.click();
   showToast('✓ Paint guide downloaded!');
 });
 
@@ -2038,6 +2051,98 @@ function showToast(msg) {
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// BUILD GUIDE (map-by-map, color-by-color)
+// ─────────────────────────────────────────────
+const MAPPX = 32;
+let lastResult = null, bs = { tx: 0, ty: 0, focus: null, row: null }, doneSet = new Set(), progKey = '';
+
+function initBuild(r) {
+  lastResult = r; bs = { tx: 0, ty: 0, focus: null, row: null };
+  let h = 0; for (let i = 0; i < r.ids.length; i += 7) h = (h * 31 + r.ids[i] + 2) | 0;
+  progKey = `artmap-${r.outW}x${r.outH}-${h}`;
+  try { doneSet = new Set(JSON.parse(localStorage.getItem(progKey) || '[]')); } catch (e) { doneSet = new Set(); }
+  renderTileGrid(); drawTile();
+}
+function saveProg() { try { localStorage.setItem(progKey, JSON.stringify([...doneSet])); } catch (e) {} }
+
+function tileInfo(tx, ty) {
+  const { outW: w, outH: h, ids } = lastResult;
+  const x0 = tx * MAPPX, y0 = ty * MAPPX, tw = Math.min(MAPPX, w - x0), th = Math.min(MAPPX, h - y0), counts = new Map();
+  for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) { const id = ids[(y0 + y) * w + x0 + x]; if (id >= 0) counts.set(id, (counts.get(id) || 0) + 1); }
+  return { x0, y0, tw, th, counts };
+}
+
+function renderTileGrid() {
+  const cols = Math.ceil(lastResult.outW / MAPPX), rows = Math.ceil(lastResult.outH / MAPPX), grid = byId('tileGrid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(38px, 1fr))`; grid.innerHTML = '';
+  for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
+    const { counts } = tileInfo(tx, ty), b = document.createElement('button');
+    const done = counts.size > 0 && [...counts.keys()].every(id => doneSet.has(`${tx},${ty},${id}`));
+    b.className = 'tile-btn' + (tx === bs.tx && ty === bs.ty ? ' active' : '') + (done ? ' done' : '');
+    b.textContent = (done ? '✓' : '') + `${ty + 1}·${tx + 1}`; b.title = `Map row ${ty + 1}, column ${tx + 1}`;
+    b.onclick = () => { bs = { tx, ty, focus: null, row: null }; renderTileGrid(); drawTile(); };
+    grid.appendChild(b);
+  }
+  byId('buildStats').textContent = `${cols * rows} map${cols * rows > 1 ? 's' : ''} (${cols} wide × ${rows} tall) · buttons are row·column`;
+}
+
+function drawTile() {
+  const { outW: w, ids } = lastResult, { tx, ty } = bs, t = tileInfo(tx, ty), Z = 16, M = 24, cv = byId('tileCanvas');
+  cv.width = t.tw * Z + M; cv.height = t.th * Z + M;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0a0e17'; c.fillRect(0, 0, cv.width, cv.height);
+  c.font = '10px monospace'; c.fillStyle = '#94a3b8'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = 0; i < t.tw; i++) if (i === 0 || (i + 1) % 4 === 0) c.fillText(i + 1, M + i * Z + Z / 2, M / 2);
+  for (let j = 0; j < t.th; j++) if (j === 0 || (j + 1) % 4 === 0) c.fillText(j + 1, M / 2, M + j * Z + Z / 2);
+  for (let y = 0; y < t.th; y++) for (let x = 0; x < t.tw; x++) {
+    const id = ids[(t.y0 + y) * w + t.x0 + x], px = M + x * Z, py = M + y * Z;
+    if (id < 0) { c.fillStyle = (x + y) % 2 ? '#1f2937' : '#111827'; c.fillRect(px, py, Z, Z); continue; }
+    const p = PALETTE[id];
+    c.globalAlpha = bs.focus !== null && bs.focus !== id ? 0.15 : (doneSet.has(`${tx},${ty},${id}`) ? 0.4 : 1);
+    c.fillStyle = `rgb(${p.r},${p.g},${p.b})`; c.fillRect(px, py, Z, Z); c.globalAlpha = 1;
+    if (bs.focus === id) { c.fillStyle = (.299 * p.r + .587 * p.g + .114 * p.b) > 128 ? '#000' : '#fff'; c.fillRect(px + Z / 2 - 2, py + Z / 2 - 2, 4, 4); }
+  }
+  for (let i = 0; i <= t.tw; i++) { c.fillStyle = i % 8 === 0 ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.3)'; c.fillRect(M + i * Z, M, i % 8 === 0 ? 2 : 1, t.th * Z); }
+  for (let j = 0; j <= t.th; j++) { c.fillStyle = j % 8 === 0 ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.3)'; c.fillRect(M, M + j * Z, t.tw * Z, j % 8 === 0 ? 2 : 1); }
+  if (bs.row !== null) { c.strokeStyle = '#fbbf24'; c.lineWidth = 2; c.strokeRect(M + 1, M + bs.row * Z + 1, t.tw * Z - 2, Z - 2); }
+
+  byId('tileTitle').textContent = `Map row ${ty + 1}, column ${tx + 1} · ${t.tw}×${t.th} px`;
+  const list = byId('tileColors'); list.innerHTML = '';
+  [...t.counts].sort((a, b) => b[1] - a[1]).forEach(([id, n]) => {
+    const p = PALETTE[id], key = `${tx},${ty},${id}`, d = document.createElement('div');
+    d.className = 'tcolor' + (bs.focus === id ? ' focus' : '') + (doneSet.has(key) ? ' done' : '');
+    d.innerHTML = `<input type="checkbox" ${doneSet.has(key) ? 'checked' : ''}><div class="entry-swatch" style="background-color:rgb(${p.r},${p.g},${p.b})"></div><span class="n">${p.name} (${p.shadeName})</span><small>${n} px</small>`;
+    d.querySelector('input').onclick = e => { e.stopPropagation(); doneSet.has(key) ? doneSet.delete(key) : doneSet.add(key); saveProg(); renderTileGrid(); drawTile(); };
+    d.onclick = () => { bs.focus = bs.focus === id ? null : id; drawTile(); };
+    list.appendChild(d);
+  });
+  const el = byId('rowInfo');
+  if (bs.row === null) { el.textContent = 'Click any pixel to get its row as left-to-right color runs.'; return; }
+  const runs = []; let run = null;
+  for (let x = 0; x < t.tw; x++) { const id = ids[(t.y0 + bs.row) * w + t.x0 + x]; if (run && run.id === id) run.n++; else runs.push(run = { id, n: 1 }); }
+  el.innerHTML = `<b>Row ${bs.row + 1}</b> (left → right):<br>` + runs.map(r => {
+    if (r.id < 0) return `<span class="run">skip ×${r.n}</span>`;
+    const p = PALETTE[r.id]; return `<span class="run"><i style="background-color:rgb(${p.r},${p.g},${p.b})"></i>${p.name} (${p.shadeName}) ×${r.n}</span>`;
+  }).join('');
+}
+
+byId('tileCanvas').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect(), y = Math.floor(((e.clientY - r.top) * (e.currentTarget.width / r.width) - 24) / 16);
+  if (y >= 0 && y < tileInfo(bs.tx, bs.ty).th) { bs.row = y; drawTile(); }
+});
+byId('dlTileBtn').onclick = () => { const a = document.createElement('a'); a.download = `artmap-row${bs.ty + 1}-col${bs.tx + 1}.png`; a.href = byId('tileCanvas').toDataURL('image/png'); a.click(); };
+document.addEventListener('keydown', e => {
+  if (!lastResult || currentStep !== 4 || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]; if (!d) return;
+  e.preventDefault();
+  bs.tx = Math.max(0, Math.min(Math.ceil(lastResult.outW / MAPPX) - 1, bs.tx + d[0]));
+  bs.ty = Math.max(0, Math.min(Math.ceil(lastResult.outH / MAPPX) - 1, bs.ty + d[1]));
+  bs.focus = null; bs.row = null; renderTileGrid(); drawTile();
+});
+byId('startOverBtn').onclick = () => { byId('fileInput').value = ''; goToStep(1); };
+[1, 2, 3, 4].forEach(n => byId(`stepItem${n}`).addEventListener('click', () => { if (n < currentStep) goToStep(n); }));
+
 buildPalette();
 buildBgColorDropdown();
 </script>
